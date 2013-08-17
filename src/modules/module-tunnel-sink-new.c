@@ -273,7 +273,7 @@ static void context_state_cb(pa_context *c, void *userdata) {
             pa_assert(!u->stream);
 
             proplist = tunnel_new_proplist(u);
-            pa_proplist_sets(proplist, PA_PROP_MEDIA_ROLE, "sound");
+            pa_proplist_sets(proplist, PA_PROP_MEDIA_ROLE, "abstract");
 
             u->stream = pa_stream_new_with_proplist(u->context,
                                                     stream_name,
