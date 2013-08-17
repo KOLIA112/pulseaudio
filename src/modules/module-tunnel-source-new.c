@@ -165,7 +165,7 @@ static void thread_func(void *userdata) {
     pa_context_set_state_callback(u->context, context_state_cb, u);
     if (pa_context_connect(u->context,
                            u->remote_server,
-                           PA_CONTEXT_NOFAIL | PA_CONTEXT_NOAUTOSPAWN,
+                           PA_CONTEXT_NOAUTOSPAWN,
                            NULL) < 0) {
         pa_log("Failed to connect libpulse context");
         goto fail;
