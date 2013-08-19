@@ -125,7 +125,7 @@ static void thread_func(void *userdata) {
 
     proplist = tunnel_new_proplist(u);
 
-    u->context = pa_context_new_with_proplist(pa_mainloop_get_api(u->thread_mainloop),
+    u->context = pa_context_new_with_proplist(u->thread_mainloop_api,
                                               "PulseAudio",
                                               proplist);
     pa_proplist_free(proplist);
@@ -428,7 +428,7 @@ int pa__init(pa_module *m) {
     u->bufferattr.prebuf = (uint32_t) -1;
     u->bufferattr.tlength = (uint32_t) -1;
 
-    pa_thread_mq_init_thread_mainloop(&u->thread_mq, m->core->mainloop, pa_mainloop_get_api(u->thread_mainloop));
+    pa_thread_mq_init_thread_mainloop(&u->thread_mq, m->core->mainloop, u->thread_mainloop_api);
 
     /* Create sink */
     pa_sink_new_data_init(&sink_data);
