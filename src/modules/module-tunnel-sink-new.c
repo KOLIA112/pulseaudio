@@ -202,7 +202,6 @@ fail:
     pa_asyncmsgq_wait_for(u->thread_mq.inq, PA_MESSAGE_SHUTDOWN);
 
 finish:
-
     if (memchunk.memblock)
         pa_memblock_unref(memchunk.memblock);
 
