@@ -209,24 +209,36 @@ static int pa_client_conf_parse_cookie_file(pa_client_conf* c) {
 int pa_client_conf_load_cookie_from_hex(pa_client_conf* c, const char *cookie_in_hex) {
     uint8_t cookie[PA_NATIVE_COOKIE_LENGTH];
 
+    pa_assert(c);
+    pa_assert(cookie_in_hex);
+
     if (pa_parsehex(cookie_in_hex, cookie, sizeof(cookie)) != sizeof(cookie)) {
         pa_log(_("Failed to parse cookie data"));
         return -PA_ERR_INVALID;
     }
 
-    pa_assert(sizeof(cookie) == sizeof(c->cookie));
-    memcpy(c->cookie, cookie, sizeof(cookie));
-
-    c->cookie_valid = true;
-
     pa_xfree(c->cookie_file);
     c->cookie_file = NULL;
 
-    return 0;
+    return pa_client_conf_set_cookie(c, cookie, PA_NATIVE_COOKIE_LENGTH);
 }
 
 int pa_client_conf_load_cookie_from_file(pa_client_conf *c, const char *cookie_file_path) {
+    pa_assert(c);
+    pa_assert(cookie_file_path);
+
     pa_xfree(c->cookie_file);
     c->cookie_file = pa_xstrdup(cookie_file_path);
     return pa_client_conf_parse_cookie_file(c);
+}
+
+int pa_client_conf_set_cookie(pa_client_conf *c, uint8_t *cookie, size_t cookie_size) {
+    pa_assert(c);
+    pa_assert(cookie);
+
+    if (cookie_size != PA_NATIVE_COOKIE_LENGTH)
+        return -PA_ERR_INVALID;
+    memcpy(c->cookie, cookie, cookie_size);
+    c->cookie_valid = true;
+    return 0;
 }
