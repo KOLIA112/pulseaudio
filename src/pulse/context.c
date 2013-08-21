@@ -1450,16 +1450,31 @@ size_t pa_context_get_tile_size(pa_context *c, const pa_sample_spec *ss) {
 }
 
 int pa_context_set_cookie(pa_context *c, uint8_t *cookie, size_t cookie_size) {
-    if(cookie_size != PA_NATIVE_COOKIE_LENGTH)
-        return -PA_ERR_INVALID;
-    memcpy(c->conf->cookie, cookie, cookie_size);
-    return 0;
+    pa_assert(c);
+    pa_assert(PA_REFCNT_VALUE(c) >= 1);
+
+    PA_CHECK_VALIDITY(c, !pa_detect_fork(), PA_ERR_FORKED);
+    PA_CHECK_VALIDITY(c, c->state == PA_CONTEXT_UNCONNECTED, PA_ERR_BADSTATE);
+
+    return pa_client_conf_set_cookie(c->conf, cookie, cookie_size);
 }
 
 int pa_context_load_cookie_from_hex(pa_context *c, const char *cookie_as_hex) {
+    pa_assert(c);
+    pa_assert(PA_REFCNT_VALUE(c) >= 1);
+
+    PA_CHECK_VALIDITY(c, !pa_detect_fork(), PA_ERR_FORKED);
+    PA_CHECK_VALIDITY(c, c->state == PA_CONTEXT_UNCONNECTED, PA_ERR_BADSTATE);
+
     return pa_client_conf_load_cookie_from_hex(c->conf, cookie_as_hex);
 }
 
 int pa_context_load_cookie_file(pa_context *c, const char *cookie_file_path) {
+    pa_assert(c);
+    pa_assert(PA_REFCNT_VALUE(c) >= 1);
+
+    PA_CHECK_VALIDITY(c, !pa_detect_fork(), PA_ERR_FORKED);
+    PA_CHECK_VALIDITY(c, c->state == PA_CONTEXT_UNCONNECTED, PA_ERR_BADSTATE);
+
     return pa_client_conf_load_cookie_from_file(c->conf, cookie_file_path);
 }
