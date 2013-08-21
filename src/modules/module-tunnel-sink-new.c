@@ -62,7 +62,8 @@ PA_MODULE_USAGE(
 #define TUNNEL_THREAD_FAILED_MAINLOOP 1
 
 static void stream_state_cb(pa_stream *stream, void *userdata);
-static void stream_buffer_attr_cb(pa_stream *stream, void *userdata);
+static void stream_changed_buffer_attr_cb(pa_stream *stream, void *userdata);
+static void stream_set_buffer_attr_cb(pa_stream *stream, int success, void *userdata);
 static void context_state_cb(pa_context *c, void *userdata);
 static void sink_update_requested_latency_cb(pa_sink *s);
 
@@ -77,7 +78,7 @@ struct userdata {
     pa_context *context;
     pa_stream *stream;
 
-    pa_buffer_attr bufferattr;
+    bool update_stream_bufferattr_after_connect;
 
     bool connected;
 
@@ -98,6 +99,15 @@ static const char* const valid_modargs[] = {
    /* "reconnect", reconnect if server comes back again - unimplemented */
     NULL,
 };
+
+static void reset_bufferattr(pa_buffer_attr *bufferattr) {
+    pa_assert(bufferattr);
+    bufferattr->fragsize = (uint32_t) -1;
+    bufferattr->minreq = (uint32_t) -1;
+    bufferattr->maxlength = (uint32_t) -1;
+    bufferattr->prebuf = (uint32_t) -1;
+    bufferattr->tlength = (uint32_t) -1;
+}
 
 static pa_proplist* tunnel_new_proplist(struct userdata *u) {
     pa_proplist *proplist = pa_proplist_new();
@@ -229,20 +239,28 @@ static void stream_state_cb(pa_stream *stream, void *userdata) {
             pa_log_debug("Stream terminated.");
             break;
         case PA_STREAM_READY:
-            /* just call our sink callback to ensure stream latency */
-            sink_update_requested_latency_cb(u->sink);
+            /* only call our requested_latency_cb when request_latency changed between PA_CONNECTING -> PA_STREAM_READY
+             * otherwhise we would deny servers response to bufferattr (which defines our latency) */
+            if (u->update_stream_bufferattr_after_connect)
+                sink_update_requested_latency_cb(u->sink);
         default:
             break;
     }
 }
 
-static void stream_buffer_attr_cb(pa_stream *stream, void *userdata) {
+/* called when remote server changes the stream buffer_attr */
+static void stream_changed_buffer_attr_cb(pa_stream *stream, void *userdata) {
     struct userdata *u = userdata;
-    const pa_buffer_attr *attr;
+    const pa_buffer_attr *bufferattr;
     pa_assert(u);
 
-    attr = pa_stream_get_buffer_attr(u->stream);
-    u->bufferattr = *attr;
+    bufferattr = pa_stream_get_buffer_attr(u->stream);
+    pa_sink_set_max_request_within_thread(u->sink, bufferattr->tlength);
+}
+
+/* called after we requested a change of the stream buffer_attr */
+static void stream_set_buffer_attr_cb(pa_stream *stream, int success, void *userdata) {
+    stream_changed_buffer_attr_cb(stream, userdata);
 }
 
 static void context_state_cb(pa_context *c, void *userdata) {
@@ -257,6 +275,8 @@ static void context_state_cb(pa_context *c, void *userdata) {
             break;
         case PA_CONTEXT_READY: {
             pa_proplist *proplist;
+            pa_buffer_attr bufferattr;
+            pa_usec_t requested_latency;
             const char *username = pa_get_user_name_malloc();
             const char *hostname = pa_get_host_name_malloc();
             /* TODO: old tunnel put here the remote sink_name into stream name e.g. 'Null Output for lynxis@lazus' */
@@ -280,11 +300,18 @@ static void context_state_cb(pa_context *c, void *userdata) {
                 return;
             }
 
+            requested_latency = pa_sink_get_requested_latency_within_thread(u->sink);
+            if (requested_latency == (uint32_t) -1)
+                requested_latency = u->sink->thread_info.max_latency;
+
+            reset_bufferattr(&bufferattr);
+            bufferattr.tlength = pa_usec_to_bytes(requested_latency, &u->sink->sample_spec);
+
             pa_stream_set_state_callback(u->stream, stream_state_cb, userdata);
-            pa_stream_set_buffer_attr_callback(u->stream, stream_buffer_attr_cb, userdata);
+            pa_stream_set_buffer_attr_callback(u->stream, stream_changed_buffer_attr_cb, userdata);
             if (pa_stream_connect_playback(u->stream,
                                            u->remote_sink_name,
-                                           &u->bufferattr,
+                                           &bufferattr,
                                            PA_STREAM_INTERPOLATE_TIMING || PA_STREAM_DONT_MOVE | PA_STREAM_START_CORKED | PA_STREAM_AUTO_TIMING_UPDATE,
                                            NULL,
                                            NULL) < 0) {
@@ -314,25 +341,35 @@ static void sink_update_requested_latency_cb(pa_sink *s) {
     pa_operation *operation;
     size_t nbytes;
     pa_usec_t block_usec;
+    pa_buffer_attr bufferattr;
 
     pa_sink_assert_ref(s);
     pa_assert_se(u = s->userdata);
 
     block_usec = pa_sink_get_requested_latency_within_thread(s);
-
     if (block_usec == (pa_usec_t) -1)
         block_usec = s->thread_info.max_latency;
 
     nbytes = pa_usec_to_bytes(block_usec, &s->sample_spec);
-    pa_sink_set_max_rewind_within_thread(s, 0);
+    pa_sink_set_max_request_within_thread(s, nbytes);
 
-    if (block_usec != (pa_usec_t) -1) {
-        u->bufferattr.tlength = nbytes;
-    }
+    if (u->stream) {
+        switch (pa_stream_get_state(u->stream)) {
+        case PA_STREAM_READY:
+            if (pa_stream_get_buffer_attr(u->stream)->tlength == nbytes)
+                break;
 
-    if (u->stream && (pa_stream_get_state(u->stream) == PA_STREAM_READY)) {
-        if((operation = pa_stream_set_buffer_attr(u->stream, &u->bufferattr, NULL, NULL)))
-            pa_operation_unref(operation);
+            reset_bufferattr(&bufferattr);
+            bufferattr.tlength = nbytes;
+            if ((operation = pa_stream_set_buffer_attr(u->stream, &bufferattr, stream_set_buffer_attr_cb, u)))
+                pa_operation_unref(operation);
+            break;
+        case PA_STREAM_CREATING:
+            /* we have to delay our request until stream is ready */
+            u->update_stream_bufferattr_after_connect = true;\
+        default:
+            break;
+        }
     }
 }
 
@@ -414,11 +451,6 @@ int pa__init(pa_module *m) {
 
     u->remote_sink_name = pa_xstrdup(pa_modargs_get_value(ma, "sink", NULL));
 
-    u->bufferattr.maxlength = (uint32_t) -1;
-    u->bufferattr.minreq = (uint32_t) -1;
-    u->bufferattr.prebuf = (uint32_t) -1;
-    u->bufferattr.tlength = (uint32_t) -1;
-
     pa_thread_mq_init_thread_mainloop(&u->thread_mq, m->core->mainloop, u->thread_mainloop_api);
 
     /* Create sink */
@@ -453,7 +485,6 @@ int pa__init(pa_module *m) {
 
     pa_sink_new_data_done(&sink_data);
     u->sink->userdata = u;
-
     u->sink->parent.process_msg = sink_process_msg_cb;
     u->sink->update_requested_latency = sink_update_requested_latency_cb;
 
