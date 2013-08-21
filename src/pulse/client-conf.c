@@ -66,7 +66,7 @@ static const pa_client_conf default_conf = {
     .auto_connect_display = false
 };
 
-static int pa_client_conf_parse_cookie_file(pa_client_conf* c);
+static int parse_cookie_file(pa_client_conf* c);
 
 pa_client_conf *pa_client_conf_new(void) {
     pa_client_conf *c = pa_xmemdup(&default_conf, sizeof(default_conf));
@@ -132,7 +132,7 @@ int pa_client_conf_load(pa_client_conf *c, const char *filename) {
     r = f ? pa_config_parse(fn, f, table, NULL, NULL) : 0;
 
     if (!r)
-        r = pa_client_conf_parse_cookie_file(c);
+        r = parse_cookie_file(c);
 
 finish:
     pa_xfree(fn);
@@ -173,13 +173,13 @@ int pa_client_conf_env(pa_client_conf *c) {
         pa_xfree(c->cookie_file);
         c->cookie_file = pa_xstrdup(e);
 
-        return pa_client_conf_parse_cookie_file(c);
+        return parse_cookie_file(c);
     }
 
     return 0;
 }
 
-static int pa_client_conf_parse_cookie_file(pa_client_conf* c) {
+static int parse_cookie_file(pa_client_conf* c) {
     int k;
 
     pa_assert(c);
@@ -229,7 +229,7 @@ int pa_client_conf_load_cookie_from_file(pa_client_conf *c, const char *cookie_f
 
     pa_xfree(c->cookie_file);
     c->cookie_file = pa_xstrdup(cookie_file_path);
-    return pa_client_conf_parse_cookie_file(c);
+    return parse_cookie_file(c);
 }
 
 int pa_client_conf_set_cookie(pa_client_conf *c, uint8_t *cookie, size_t cookie_size) {
