@@ -129,6 +129,9 @@ typedef enum pa_context_flags {
 #define PA_CONTEXT_NOFAIL PA_CONTEXT_NOFAIL
 /** \endcond */
 
+/** Cookie length in bytes. \since 5.0 */
+#define PA_COOKIE_LENGTH 256
+
 /** Direction bitfield - while we currently do not expose anything bidirectional,
   one should test against the bit instead of the value (e.g.\ if (d & PA_DIRECTION_OUTPUT)),
   because we might add bidirectional stuff in the future. \since 2.0
