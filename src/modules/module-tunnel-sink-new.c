@@ -114,14 +114,11 @@ static void thread_func(void *userdata) {
     struct userdata *u = userdata;
     pa_proplist *proplist;
     pa_memchunk memchunk;
-    pa_operation *operation;
 
     pa_assert(u);
 
     pa_log_debug("Thread starting up");
     pa_thread_mq_install(&u->thread_mq);
-
-    pa_memchunk_reset(&memchunk);
 
     proplist = tunnel_new_proplist(u);
 
@@ -166,6 +163,7 @@ static void thread_func(void *userdata) {
             /* TODO: use IS_RUNNING + cork stream */
 
             if (pa_stream_is_corked(u->stream)) {
+                pa_operation *operation;
                 if((operation = pa_stream_cork(u->stream, 0, NULL, NULL))) {
                     pa_operation_unref(operation);
                 }
@@ -177,17 +175,16 @@ static void thread_func(void *userdata) {
                     pa_assert(memchunk.length > 0);
 
                     /* we have new data to write */
-                    p = (const uint8_t *) pa_memblock_acquire(memchunk.memblock);
+                    p = pa_memblock_acquire(memchunk.memblock);
                     /* TODO: ZERO COPY! */
                     ret = pa_stream_write(u->stream,
-                                         ((uint8_t*) p + memchunk.index),
-                                         memchunk.length,
-                                         NULL,     /**< A cleanup routine for the data or NULL to request an internal copy */
-                                         0,        /** offset */
-                                         PA_SEEK_RELATIVE);
+                                          (uint8_t*) p + memchunk.index,
+                                          memchunk.length,
+                                          NULL,     /**< A cleanup routine for the data or NULL to request an internal copy */
+                                          0,        /** offset */
+                                          PA_SEEK_RELATIVE);
                     pa_memblock_release(memchunk.memblock);
                     pa_memblock_unref(memchunk.memblock);
-                    pa_memchunk_reset(&memchunk);
 
                     if (ret != 0) {
                         pa_log_error("Could not write data into the stream ... ret = %i", ret);
@@ -202,9 +199,6 @@ fail:
     pa_asyncmsgq_wait_for(u->thread_mq.inq, PA_MESSAGE_SHUTDOWN);
 
 finish:
-    if (memchunk.memblock)
-        pa_memblock_unref(memchunk.memblock);
-
     if (u->stream) {
         pa_stream_disconnect(u->stream);
         pa_stream_unref(u->stream);
@@ -265,8 +259,8 @@ static void context_state_cb(pa_context *c, void *userdata) {
             pa_proplist *proplist;
             const char *username = pa_get_user_name_malloc();
             const char *hostname = pa_get_host_name_malloc();
-            /* TODO: old tunnel say 'Null-Output' */
-            char *stream_name = pa_sprintf_malloc("%s for %s@%s", "Tunnel", username, hostname);
+            /* TODO: old tunnel put here the remote sink_name into stream name e.g. 'Null Output for lynxis@lazus' */
+            char *stream_name = pa_sprintf_malloc(_("Tunnel for %s@%s"), username, hostname);
 
             pa_log_debug("Connection successful. Creating stream.");
             pa_assert(!u->stream);
