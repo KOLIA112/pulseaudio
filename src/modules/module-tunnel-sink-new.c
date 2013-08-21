@@ -295,7 +295,7 @@ static void context_state_cb(pa_context *c, void *userdata) {
             break;
         }
         case PA_CONTEXT_FAILED:
-            pa_log_debug("Context failed with %s.", pa_strerror(pa_context_errno(u->context)));
+            pa_log_debug("Context failed: %s.", pa_strerror(pa_context_errno(u->context)));
             u->connected = false;
             u->thread_mainloop_api->quit(u->thread_mainloop_api, TUNNEL_THREAD_FAILED_MAINLOOP);
             break;
