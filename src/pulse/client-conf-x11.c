@@ -91,7 +91,7 @@ int pa_client_conf_from_x11(pa_client_conf *c, const char *dname) {
     }
 
     if (pa_x11_get_prop(xcb, screen, "PULSE_COOKIE", t, sizeof(t))) {
-        if(pa_client_conf_load_cookie_from_hex(c, t) < 0) {
+        if (pa_client_conf_load_cookie_from_hex(c, t) < 0) {
             pa_log(_("Failed to parse cookie data"));
             goto finish;
         }
