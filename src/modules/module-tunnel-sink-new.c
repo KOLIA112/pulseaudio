@@ -123,15 +123,12 @@ static pa_proplist* tunnel_new_proplist(struct userdata *u) {
 static void thread_func(void *userdata) {
     struct userdata *u = userdata;
     pa_proplist *proplist;
-    pa_memchunk memchunk;
-
     pa_assert(u);
 
     pa_log_debug("Thread starting up");
     pa_thread_mq_install(&u->thread_mq);
 
     proplist = tunnel_new_proplist(u);
-
     u->context = pa_context_new_with_proplist(u->thread_mainloop_api,
                                               "PulseAudio",
                                               proplist);
@@ -154,6 +151,7 @@ static void thread_func(void *userdata) {
     for (;;) {
         int ret;
         const void *p;
+        pa_memchunk memchunk;
 
         size_t writable = 0;
 
