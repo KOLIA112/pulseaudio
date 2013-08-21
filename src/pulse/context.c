@@ -1469,7 +1469,7 @@ int pa_context_load_cookie_from_hex(pa_context *c, const char *cookie_as_hex) {
     return pa_client_conf_load_cookie_from_hex(c->conf, cookie_as_hex);
 }
 
-int pa_context_load_cookie_file(pa_context *c, const char *cookie_file_path) {
+int pa_context_load_cookie_from_file(pa_context *c, const char *cookie_file_path) {
     pa_assert(c);
     pa_assert(PA_REFCNT_VALUE(c) >= 1);
 

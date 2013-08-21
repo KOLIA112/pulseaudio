@@ -287,7 +287,7 @@ int pa_context_set_cookie(pa_context *c, uint8_t *cookie, size_t cookie_size);
 int pa_context_load_cookie_from_hex(pa_context *c, const char *cookie);
 
 /** Load the authentication cookie from a file \since 5.0 */
-int pa_context_load_cookie_file(pa_context *c, const char *cookie_file_path);
+int pa_context_load_cookie_from_file(pa_context *c, const char *cookie_file_path);
 
 PA_C_DECL_END
 
