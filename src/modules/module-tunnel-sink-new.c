@@ -364,8 +364,7 @@ static int sink_process_msg_cb(pa_msgobject *o, int code, void *data, int64_t of
                 return 0;
             }
 
-            *((pa_usec_t*) data) =
-                remote_latency;
+            *((pa_usec_t*) data) = remote_latency;
             return 0;
         }
     }
