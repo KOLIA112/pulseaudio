@@ -170,10 +170,7 @@ int pa_client_conf_env(pa_client_conf *c) {
     }
 
     if ((e = getenv(ENV_COOKIE_FILE))) {
-        pa_xfree(c->cookie_file);
-        c->cookie_file = pa_xstrdup(e);
-
-        return parse_cookie_file(c);
+        return pa_client_conf_load_cookie_from_file(c, e);
     }
 
     return 0;
