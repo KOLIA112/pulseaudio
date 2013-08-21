@@ -170,11 +170,11 @@ static void thread_func(void *userdata) {
         if (u->connected &&
                 pa_stream_get_state(u->stream) == PA_STREAM_READY &&
                 PA_SINK_IS_LINKED(u->sink->thread_info.state)) {
-            /* TODO: use IS_RUNNING + cork stream */
+            /* TODO: use IS_RUNNING and cork the stream when sink is not running */
 
             if (pa_stream_is_corked(u->stream)) {
                 pa_operation *operation;
-                if((operation = pa_stream_cork(u->stream, 0, NULL, NULL))) {
+                if ((operation = pa_stream_cork(u->stream, 0, NULL, NULL))) {
                     pa_operation_unref(operation);
                 }
             } else {
@@ -240,7 +240,7 @@ static void stream_state_cb(pa_stream *stream, void *userdata) {
             break;
         case PA_STREAM_READY:
             /* only call our requested_latency_cb when request_latency changed between PA_CONNECTING -> PA_STREAM_READY
-             * otherwhise we would deny servers response to bufferattr (which defines our latency) */
+             * otherwhise we would deny servers response to bufferattr (which defines latency) */
             if (u->update_stream_bufferattr_after_connect)
                 sink_update_requested_latency_cb(u->sink);
         default:
@@ -312,7 +312,7 @@ static void context_state_cb(pa_context *c, void *userdata) {
             if (pa_stream_connect_playback(u->stream,
                                            u->remote_sink_name,
                                            &bufferattr,
-                                           PA_STREAM_INTERPOLATE_TIMING || PA_STREAM_DONT_MOVE | PA_STREAM_START_CORKED | PA_STREAM_AUTO_TIMING_UPDATE,
+                                           PA_STREAM_INTERPOLATE_TIMING | PA_STREAM_DONT_MOVE | PA_STREAM_START_CORKED | PA_STREAM_AUTO_TIMING_UPDATE,
                                            NULL,
                                            NULL) < 0) {
                 pa_log_error("Could not connect stream.");
